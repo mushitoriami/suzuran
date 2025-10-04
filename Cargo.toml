@@ -1,0 +1,8 @@
+[package]
+name = "suzuran"
+version = "0.1.0"
+edition = "2024"
+description = "An operator-precedence parser based on the Shunting Yard algorithm"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/mushitoriami/suzuran"
