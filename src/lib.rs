@@ -100,7 +100,7 @@ impl Parser {
         }
         self.insert_placeholder(token_previous, None);
         self.pop_operators_ge(0)?;
-        match self.stack_operator.is_empty() {
+        match self.stack_operator.is_empty() && self.stack_node.len() == 1 {
             true => self.stack_node.pop(),
             false => None,
         }
