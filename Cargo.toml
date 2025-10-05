@@ -1,6 +1,6 @@
 [package]
 name = "suzuran"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "An operator-precedence parser based on the Shunting Yard algorithm"
 license = "MIT"
