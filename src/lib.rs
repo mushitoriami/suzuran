@@ -232,4 +232,10 @@ mod tests {
             )
         );
     }
+
+    #[test]
+    fn test_parse_7() {
+        let mut parser = Parser::new(["*"]);
+        assert_eq!(parser.parse(["p", "q", "*", "r", "s"]), None);
+    }
 }
