@@ -100,7 +100,7 @@ impl Parser {
         }
         self.insert_placeholder(token_previous, None);
         self.pop_operators_ge(0)?;
-        match self.stack_operator.is_empty() {
+        match self.stack_operator.is_empty() && self.stack_node.len() == 1 {
             true => self.stack_node.pop(),
             false => None,
         }
@@ -231,5 +231,11 @@ mod tests {
                 ))
             )
         );
+    }
+
+    #[test]
+    fn test_parse_7() {
+        let mut parser = Parser::new(["*"]);
+        assert_eq!(parser.parse(["p", "q", "*", "r", "s"]), None);
     }
 }
