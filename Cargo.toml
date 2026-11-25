@@ -2,6 +2,7 @@
 name = "suzuran"
 version = "0.1.1"
 edition = "2024"
+rust-version = "1.88"
 description = "An operator-precedence parser based on the Shunting Yard algorithm"
 license = "MIT"
 readme = "README.md"
