@@ -254,4 +254,42 @@ mod tests {
             Node::Primitive("2".to_string())
         );
     }
+
+    #[test]
+    fn test_parse_left_associative() {
+        let parser = Parser::new(["-"]);
+        assert_eq!(
+            parser.parse(["1", "-", "2", "-", "3"]).unwrap(),
+            Node::Operator(
+                "-".to_string(),
+                Box::new(Node::Operator(
+                    "-".to_string(),
+                    Box::new(Node::Primitive("1".to_string())),
+                    Box::new(Node::Primitive("2".to_string()))
+                )),
+                Box::new(Node::Primitive("3".to_string()))
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_unclosed_parenthesis() {
+        let parser = Parser::new(["+"]);
+        assert_eq!(parser.parse(["(", "1"]), None);
+        assert_eq!(parser.parse(["(", "1", "+", "2"]), None);
+    }
+
+    #[test]
+    fn test_parse_unopened_parenthesis() {
+        let parser = Parser::new(["+"]);
+        assert_eq!(parser.parse([")"]), None);
+        assert_eq!(parser.parse(["1", ")"]), None);
+        assert_eq!(parser.parse(["1", "+", "2", ")"]), None);
+    }
+
+    #[test]
+    fn test_parse_adjacent_primitives() {
+        let parser = Parser::new(["+"]);
+        assert_eq!(parser.parse(["1", "(", "2", ")"]), None);
+    }
 }
