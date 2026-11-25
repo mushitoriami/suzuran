@@ -23,9 +23,7 @@ impl Parser {
         for (index, operator) in operators.into_iter().enumerate() {
             priorities.insert(operator.to_string(), index);
         }
-        Parser {
-            priorities: priorities,
-        }
+        Parser { priorities }
     }
 
     fn insert_placeholder(
@@ -37,13 +35,13 @@ impl Parser {
         let needs_placeholder_after = match token_before {
             None => true,
             Some("(") => true,
-            Some(token) if self.priorities.get(token).is_some() => true,
+            Some(token) if self.priorities.contains_key(token) => true,
             _ => false,
         };
         let needs_placeholder_before = match token_after {
             None => true,
             Some(")") => true,
-            Some(token) if self.priorities.get(token).is_some() => true,
+            Some(token) if self.priorities.contains_key(token) => true,
             _ => false,
         };
         if needs_placeholder_after && needs_placeholder_before {
@@ -57,7 +55,8 @@ impl Parser {
                 let o2 = stack_node.pop()?;
                 let o1 = stack_node.pop()?;
                 let node = Node::Operator(label, Box::new(o1), Box::new(o2));
-                Some(stack_node.push(node))
+                stack_node.push(node);
+                Some(())
             }
             _ => None,
         }
