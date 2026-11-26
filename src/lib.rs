@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
@@ -23,9 +25,7 @@ impl Parser {
         for (index, operator) in operators.into_iter().enumerate() {
             priorities.insert(operator.to_string(), index);
         }
-        Parser {
-            priorities: priorities,
-        }
+        Parser { priorities }
     }
 
     fn insert_placeholder(
@@ -37,13 +37,13 @@ impl Parser {
         let needs_placeholder_after = match token_before {
             None => true,
             Some("(") => true,
-            Some(token) if self.priorities.get(token).is_some() => true,
+            Some(token) if self.priorities.contains_key(token) => true,
             _ => false,
         };
         let needs_placeholder_before = match token_after {
             None => true,
             Some(")") => true,
-            Some(token) if self.priorities.get(token).is_some() => true,
+            Some(token) if self.priorities.contains_key(token) => true,
             _ => false,
         };
         if needs_placeholder_after && needs_placeholder_before {
@@ -57,7 +57,8 @@ impl Parser {
                 let o2 = stack_node.pop()?;
                 let o1 = stack_node.pop()?;
                 let node = Node::Operator(label, Box::new(o1), Box::new(o2));
-                Some(stack_node.push(node))
+                stack_node.push(node);
+                Some(())
             }
             _ => None,
         }
@@ -254,5 +255,43 @@ mod tests {
             parser.parse(["2"]).unwrap(),
             Node::Primitive("2".to_string())
         );
+    }
+
+    #[test]
+    fn test_parse_left_associative() {
+        let parser = Parser::new(["-"]);
+        assert_eq!(
+            parser.parse(["1", "-", "2", "-", "3"]).unwrap(),
+            Node::Operator(
+                "-".to_string(),
+                Box::new(Node::Operator(
+                    "-".to_string(),
+                    Box::new(Node::Primitive("1".to_string())),
+                    Box::new(Node::Primitive("2".to_string()))
+                )),
+                Box::new(Node::Primitive("3".to_string()))
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_unclosed_parenthesis() {
+        let parser = Parser::new(["+"]);
+        assert_eq!(parser.parse(["(", "1"]), None);
+        assert_eq!(parser.parse(["(", "1", "+", "2"]), None);
+    }
+
+    #[test]
+    fn test_parse_unopened_parenthesis() {
+        let parser = Parser::new(["+"]);
+        assert_eq!(parser.parse([")"]), None);
+        assert_eq!(parser.parse(["1", ")"]), None);
+        assert_eq!(parser.parse(["1", "+", "2", ")"]), None);
+    }
+
+    #[test]
+    fn test_parse_adjacent_primitives() {
+        let parser = Parser::new(["+"]);
+        assert_eq!(parser.parse(["1", "(", "2", ")"]), None);
     }
 }

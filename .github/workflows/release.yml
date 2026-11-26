@@ -3,12 +3,21 @@ on:
   push:
     tags: ['v*']
 jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
   publish:
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       id-token: write
     steps:
     - uses: actions/checkout@v5
+    - run: |
+        version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+        if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+          echo "Tag $GITHUB_REF_NAME does not match Cargo.toml version $version" >&2
+          exit 1
+        fi
     - uses: rust-lang/crates-io-auth-action@v1
       id: auth
     - run: cargo publish

@@ -1,0 +1,26 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+    - run: rustup default stable
+    - run: cargo fmt --check
+    - run: cargo clippy --all-targets -- -D warnings
+    - run: cargo test
+    - run: cargo publish --dry-run
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - run: |
+        msrv=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].rust_version')
+        rustup toolchain install "$msrv" --profile minimal
+        rustup default "$msrv"
+    - run: cargo test
