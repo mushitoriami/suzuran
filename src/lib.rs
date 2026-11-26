@@ -15,8 +15,6 @@ enum Operator {
 
 pub struct Parser {
     priorities: HashMap<String, usize>,
-    stack_node: Vec<Node>,
-    stack_operator: Vec<Operator>,
 }
 
 impl Parser {
@@ -27,12 +25,15 @@ impl Parser {
         }
         Parser {
             priorities: priorities,
-            stack_node: Vec::new(),
-            stack_operator: Vec::new(),
         }
     }
 
-    fn insert_placeholder(&mut self, token_before: Option<&str>, token_after: Option<&str>) {
+    fn insert_placeholder(
+        &self,
+        stack_node: &mut Vec<Node>,
+        token_before: Option<&str>,
+        token_after: Option<&str>,
+    ) {
         let needs_placeholder_after = match token_before {
             None => true,
             Some("(") => true,
@@ -46,62 +47,68 @@ impl Parser {
             _ => false,
         };
         if needs_placeholder_after && needs_placeholder_before {
-            self.stack_node.push(Node::Placeholder())
+            stack_node.push(Node::Placeholder())
         }
     }
 
-    fn pop_operator(&mut self) -> Option<()> {
-        match self.stack_operator.pop()? {
+    fn pop_operator(stack_node: &mut Vec<Node>, stack_operator: &mut Vec<Operator>) -> Option<()> {
+        match stack_operator.pop()? {
             Operator::Operator(label, _) => {
-                let o2 = self.stack_node.pop()?;
-                let o1 = self.stack_node.pop()?;
+                let o2 = stack_node.pop()?;
+                let o1 = stack_node.pop()?;
                 let node = Node::Operator(label, Box::new(o1), Box::new(o2));
-                Some(self.stack_node.push(node))
+                Some(stack_node.push(node))
             }
             _ => None,
         }
     }
 
-    fn pop_operators_ge(&mut self, priority0: usize) -> Option<()> {
-        while let Some(&Operator::Operator(_, priority)) = self.stack_operator.last()
+    fn pop_operators_ge(
+        stack_node: &mut Vec<Node>,
+        stack_operator: &mut Vec<Operator>,
+        priority0: usize,
+    ) -> Option<()> {
+        while let Some(&Operator::Operator(_, priority)) = stack_operator.last()
             && priority >= priority0
         {
-            self.pop_operator()?;
+            Self::pop_operator(stack_node, stack_operator)?;
         }
         Some(())
     }
 
-    pub fn parse<'a>(&mut self, input: impl IntoIterator<Item = &'a str>) -> Option<Node> {
+    pub fn parse<'a>(&self, input: impl IntoIterator<Item = &'a str>) -> Option<Node> {
+        let mut stack_node: Vec<Node> = Vec::new();
+        let mut stack_operator: Vec<Operator> = Vec::new();
         let mut token_previous: Option<&str> = None;
         for token in input {
-            self.insert_placeholder(token_previous, Some(token));
+            self.insert_placeholder(&mut stack_node, token_previous, Some(token));
             match token {
                 "(" => {
-                    self.stack_operator.push(Operator::Parenthesis());
+                    stack_operator.push(Operator::Parenthesis());
                 }
                 ")" => {
-                    self.pop_operators_ge(0)?;
-                    let _ = self.stack_operator.pop()?;
-                    let node = self.stack_node.pop()?;
-                    self.stack_node.push(Node::Parentheses(Box::new(node)));
+                    Self::pop_operators_ge(&mut stack_node, &mut stack_operator, 0)?;
+                    let _ = stack_operator.pop()?;
+                    let node = stack_node.pop()?;
+                    stack_node.push(Node::Parentheses(Box::new(node)));
                 }
                 _ => match self.priorities.get(token) {
                     Some(&priority) => {
-                        self.pop_operators_ge(priority)?;
+                        Self::pop_operators_ge(&mut stack_node, &mut stack_operator, priority)?;
                         let operator = Operator::Operator(token.to_string(), priority);
-                        self.stack_operator.push(operator);
+                        stack_operator.push(operator);
                     }
                     _ => {
-                        self.stack_node.push(Node::Primitive(token.to_string()));
+                        stack_node.push(Node::Primitive(token.to_string()));
                     }
                 },
             }
             token_previous = Some(token);
         }
-        self.insert_placeholder(token_previous, None);
-        self.pop_operators_ge(0)?;
-        match self.stack_operator.is_empty() && self.stack_node.len() == 1 {
-            true => self.stack_node.pop(),
+        self.insert_placeholder(&mut stack_node, token_previous, None);
+        Self::pop_operators_ge(&mut stack_node, &mut stack_operator, 0)?;
+        match stack_operator.is_empty() && stack_node.len() == 1 {
+            true => stack_node.pop(),
             false => None,
         }
     }
@@ -113,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_parse_1() {
-        let mut parser = Parser::new(["+", "*"]);
+        let parser = Parser::new(["+", "*"]);
         assert_eq!(
             parser.parse(["1", "+", "2", "*", "3"]).unwrap(),
             Node::Operator(
@@ -130,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_parse_2() {
-        let mut parser = Parser::new(["+", "-", "*"]);
+        let parser = Parser::new(["+", "-", "*"]);
         assert_eq!(
             parser.parse(["-", "1", "*", "2", "+", "3"]).unwrap(),
             Node::Operator(
@@ -151,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_parse_3() {
-        let mut parser = Parser::new(["+", "?", "*"]);
+        let parser = Parser::new(["+", "?", "*"]);
         assert_eq!(
             parser.parse(["1", "+", "2", "*", "3", "?"]).unwrap(),
             Node::Operator(
@@ -172,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_parse_4() {
-        let mut parser = Parser::new(["+", "*"]);
+        let parser = Parser::new(["+", "*"]);
         assert_eq!(
             parser.parse(["(", "1", "+", "2", ")", "*", "3"]).unwrap(),
             Node::Operator(
@@ -189,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_parse_5() {
-        let mut parser = Parser::new(["+", "-", "*"]);
+        let parser = Parser::new(["+", "-", "*"]);
         assert_eq!(
             parser
                 .parse(["(", "-", "1", ")", "*", "2", "+", "3"])
@@ -212,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_parse_6() {
-        let mut parser = Parser::new(["+", "?", "*"]);
+        let parser = Parser::new(["+", "?", "*"]);
         assert_eq!(
             parser
                 .parse(["1", "+", "2", "*", "(", "3", "?", ")"])
@@ -235,7 +242,17 @@ mod tests {
 
     #[test]
     fn test_parse_7() {
-        let mut parser = Parser::new(["*"]);
+        let parser = Parser::new(["*"]);
         assert_eq!(parser.parse(["p", "q", "*", "r", "s"]), None);
+    }
+
+    #[test]
+    fn test_parse_reuse() {
+        let parser = Parser::new(["+"]);
+        assert_eq!(parser.parse(["(", "1", "+"]), None);
+        assert_eq!(
+            parser.parse(["2"]).unwrap(),
+            Node::Primitive("2".to_string())
+        );
     }
 }
